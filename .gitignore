@@ -1,0 +1,37 @@
+Benchmarks vs docs and research/
+
+data-load/
+
+# Env / secrets. The redacted template is published; real .env is not.
+.env
+.env.*
+!.env.example
+*[Ss]ensitive*
+*[Cc]reds*
+# Local MCP client config (holds a gateway key)
+.mcp.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Run logs (regenerated each run)
+*.log
+results/*.log
+
+# Raw run artifacts -- per-run JSON with internal MCP endpoint IDs; not published.
+# Aggregated outputs (matrix.csv, runs_raw.csv, charts/, PDFs) are committed.
+results/matrix/
+results/smoke*/
+results/.heartbeat
+
+# OS
+.DS_Store
+Thumbs.db

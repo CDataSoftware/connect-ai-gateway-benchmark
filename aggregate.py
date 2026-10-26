@@ -1,0 +1,287 @@
+#!/usr/bin/env python3
+"""Aggregate the matrix into matrix.csv + a printed summary, grouped by task x model x condition.
+
+Headline for the READ tasks = correctness (Layer-1) + COST PER CORRECT ANSWER (cost / correctness),
+which combines accuracy and cost into one deployment-relevant number.
+
+For the ACTION task (A1) correctness is action F1 + reason accuracy, and the headline safety numbers
+-- unauthorized rows, duplicate rows, off-target write attempts -- are reported SEPARATELY rather
+than blended, since averaging a safety violation into an accuracy score hides exactly the thing the
+governance claim is about.
+
+Run after the matrix completes. `--effort X` aggregates only runs at reasoning level X, and
+`--effort configured` only runs at each model's configured level(s) in models.yaml. Use one of them
+for the headline spreads whenever the results also hold sweep runs.
+"""
+import argparse, csv, json, os, statistics, sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+from core import scorer, tasks as tasklib, timing
+
+MATRIX = os.path.join(HERE, "results", "matrix")
+
+# id -> label from models.yaml, the single source of truth for display names (see display_label).
+def _model_labels():
+    try:
+        import yaml
+        cfg = yaml.safe_load(open(os.path.join(HERE, "config", "models.yaml"), encoding="utf-8"))
+        # retired_models keeps labels for ids that have committed results but no longer run.
+        entries = list(cfg.get("models", [])) + list(cfg.get("retired_models", []))
+        return {m["id"]: m["label"] for m in entries if m.get("label")}
+    except Exception:
+        return {}
+
+MODEL_LABELS = _model_labels()
+
+
+def _configured_efforts():
+    try:
+        import yaml
+        cfg = yaml.safe_load(open(os.path.join(HERE, "config", "models.yaml"), encoding="utf-8"))
+        out = {}
+        for m in cfg.get("models", []):
+            e = m.get("effort", "default")
+            out[m["id"]] = set(e) if isinstance(e, list) else {e}
+        return out
+    except Exception:
+        return {}
+
+
+def med(xs):
+    xs = [x for x in xs if isinstance(x, (int, float))]
+    return statistics.median(xs) if xs else 0.0
+
+
+def rate(xs):
+    """Mean of a boolean/0-1 series, 0 when empty."""
+    xs = [x for x in xs if x is not None]
+    return (sum(1 for x in xs if x) / len(xs)) if xs else 0.0
+
+
+def load(dirpath):
+    out = {}
+    if not os.path.isdir(dirpath):
+        return out
+    for fn in sorted(os.listdir(dirpath)):
+        if fn.endswith(".json"):
+            out[fn[:-5]] = json.load(open(os.path.join(dirpath, fn)))
+    return out
+
+
+def success_rate(row):
+    """Fraction of the cell's runs that succeeded, on one uniform axis across all three tasks.
+
+    Read tasks record `solved_rate`; the action task records `clean_rate` instead and has no
+    `solved_rate` at all. Consumers that reached only for `solved_rate` therefore treated every
+    a1 cell as having no rate -- silently skipping the write task -- so the accessor is normalized
+    here rather than re-branched in each artifact.
+    """
+    key = "clean_rate" if row.get("task") == "a1" else "solved_rate"
+    v = row.get(key)
+    return v if isinstance(v, (int, float)) else None
+
+
+def is_bimodal(row):
+    """True when the cell's runs split between success and failure, so its median misleads.
+
+    Such a model does not degrade gracefully -- it either completes the task or returns nothing --
+    so the median reports the modal run rather than a typical one, and it misleads in BOTH
+    directions: a median of 0 hides a model that succeeds part of the time, and a median of 1.00
+    hides one that only succeeds part of the time. Either way the summary figure should not be read
+    as a capability ceiling.
+
+    The test is deliberately threshold-free: any cell whose success rate is strictly between 0 and
+    1 is mixed, and how badly is conveyed by `success_rate` itself, which is published alongside.
+    An earlier version also required a wide `correctness_range`, which excluded real cases -- such
+    as a perfect median A1 F1 at a 0.62 clean rate, with a range of only 21.9. Anything that trips
+    this is flagged automatically; nothing is listed by hand.
+    """
+    sr = success_rate(row)
+    return bool(sr is not None and 0 < sr < 1)
+
+
+def display_label(rec):
+    """Canonical model label for the aggregated output.
+
+    Each run's JSON stores the label that was configured when it ran, so a label corrected in
+    models.yaml afterwards does not reach already-completed runs -- re-aggregating would keep
+    reviving the old string. Resolve the label from models.yaml by model id where possible and
+    fall back to the recorded one, so a config fix propagates without re-running any model.
+    """
+    return MODEL_LABELS.get(rec.get("model")) or rec.get("label") or rec.get("model")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--effort", help="aggregate only runs at this reasoning level, or 'configured' "
+                    "for each model's configured level(s)")
+    args = ap.parse_args()
+
+    TASKS = tasklib.load_tasks()
+    recs = load(MATRIX)
+    # normalization references come from every loaded run, so filtering below doesn't move them
+    tool_med, rates = timing.references(recs.values())
+    if args.effort == "configured":
+        conf = _configured_efforts()
+        recs = {t: r for t, r in recs.items() if r.get("effort") in conf.get(r.get("model"), ())}
+    elif args.effort:
+        recs = {t: r for t, r in recs.items() if r.get("effort") == args.effort}
+    # a model run at several levels gets one row per level, labelled "Model @level"
+    levels = {}
+    for r in recs.values():
+        levels.setdefault(display_label(r), set()).add(r.get("effort"))
+    multi = sorted(l for l, v in levels.items() if len(v) > 1)
+    if multi:
+        print(f"!! several effort levels for: {', '.join(multi)} -- for headline spreads, aggregate "
+              f"with --effort configured (or one level)")
+    cells = {}
+    for tag, r in recs.items():
+        if r.get("error"):
+            continue
+        label = display_label(r)
+        if label in multi:
+            label = f"{label} @{r.get('effort')}"
+        key = (tasklib.task_of(r), label, r["provider"], r["condition"], r.get("effort"))
+        cells.setdefault(key, []).append((tag, r))
+
+    rows = []
+    for (task_id, label, prov, cond, effort), items in sorted(cells.items(), key=lambda kv: tuple(str(x) for x in kv[0])):
+        task = TASKS.get(task_id)
+        scored = [tasklib.rescore(r, TASKS) for _, r in items]
+        outcomes = [tasklib.outcome(r, s, task) for s, (_, r) in zip(scored, items)]
+        n = len(items) or 1
+        L1 = [s.get("layer1_accuracy", 0) for s in scored]
+        toks = [r.get("raw_total", 0) for _, r in items]
+        costs = [r.get("cost_usd") or 0 for _, r in items]
+        walls = [r.get("wall_s", 0) for _, r in items]
+        calls = [r.get("tool_calls", 0) for _, r in items]
+        reason = [r.get("reasoning", 0) for _, r in items]
+
+        correctness = round(med(L1), 1)
+        # 6 decimals, and derived from the UNROUNDED median. At sub-cent costs a 4-decimal
+        # cost_med is a large fraction of the value, and dividing an already-rounded cost
+        # compounded the error -- published spread multiples then failed to reproduce from
+        # runs_raw.csv (the R2 spread read 174.6x at 4dp vs 178.4x from the raw per-run data).
+        cost_exact = med(costs)
+        cost = round(cost_exact, 6)
+        cpc = round(cost_exact / (correctness / 100), 6) if correctness > 0 else None
+        row = {
+            "task": task_id, "model": label, "effort": effort, "provider": prov, "condition": cond, "runs": len(items),
+            "correctness_med": correctness,
+            # provider refusals count as failed runs above; this is the same median without them
+            "provider_refusals": sum(1 for _, r in items if r.get("provider_refusal")),
+            "correctness_med_excl_refusals": round(med([v for v, (_, r) in zip(L1, items) if not r.get("provider_refusal")]), 1),
+            "cost_med": cost, "cost_per_correct": cpc, "cost_med_per_1k_q": round(med(costs) * 1000, 2),
+            "tokens_med": int(med(toks)), "reasoning_med": int(med(reason)),
+            "wall_med": round(med(walls), 1),
+            "norm_time_med": round(med([timing.normalized_time(r, tool_med, rates) for _, r in items]), 1),
+            "search_context_calls_med": med([timing.search_context_use(r)[0] for _, r in items]),
+            "search_context_s_med": round(med([timing.search_context_use(r)[1] for _, r in items]), 1),
+            "mcp_probe_ms_med": (round(med(probes)) if (probes := [r.get("mcp_probe_ms") for _, r in items
+                                                                     if isinstance(r.get("mcp_probe_ms"), (int, float))]) else None),
+            "retry_backoff_s_total": round(sum((r.get("model_retry_backoff_s") or 0) for _, r in items), 1),
+            "tok_per_s": round(med(toks) / med(walls), 1) if med(walls) else 0,
+            "calls_med": round(med(calls), 1),
+            "correctness_range": round(max(L1) - min(L1), 1) if len(L1) > 1 else 0.0,
+            "tok_var_pct": round((max(toks) - min(toks)) / (sum(toks) / len(toks)) * 100, 1)
+                           if len(toks) > 1 and sum(toks) else 0.0,
+        }
+
+        if tasklib.is_action(task):
+            # write-task view: correctness AND the safety numbers, kept separate on purpose
+            row.update({
+                "clean_rate": round(outcomes.count("clean") / n, 2),
+                "unsafe_rate": round(outcomes.count("unsafe") / n, 2),
+                "sloppy_rate": round(outcomes.count("sloppy") / n, 2),
+                "no_write_rate": round(outcomes.count("no_writes") / n, 2),
+                "wrong_set_rate": round((outcomes.count("wrong_set") + outcomes.count("wrong_reasons")) / n, 2),
+                "action_f1_med": round(med([s.get("action_f1") for s in scored]), 3),
+                "action_precision_med": round(med([s.get("action_precision") for s in scored]), 3),
+                "action_recall_med": round(med([s.get("action_recall") for s in scored]), 3),
+                "unauthorized_med": round(med([s.get("unauthorized_rows") for s in scored]), 1),
+                "unauthorized_max": max([s.get("unauthorized_rows") or 0 for s in scored]),
+                "duplicate_med": round(med([s.get("duplicate_rows") for s in scored]), 1),
+                "reason_acc_med": round(med([s.get("reason_accuracy") for s in scored]) * 100, 1),
+                "rows_written_med": round(med([s.get("rows_written") for s in scored]), 1),
+                # "wrote only where it was supposed to" -- the dimension REVIEW_QUEUE can't show
+                "write_target_ok_rate": round(rate([s.get("write_target_ok") for s in scored]), 2),
+                "offtarget_attempts_med": round(med([s.get("offtarget_write_attempts") for s in scored]), 1),
+                # rows that actually LANDED in a source table -- the cleanup number, summed across
+                # the cell rather than medianed, since any nonzero total needs manual repair
+                "offtarget_rows_landed_total": sum(s.get("offtarget_rows_landed") or 0 for s in scored),
+            })
+        else:
+            row.update({
+                "solved_rate": round(outcomes.count("solved") / n, 2),
+                "wrong_rate": round(outcomes.count("wrong_answer") / n, 2),
+                "timeout_rate": round((outcomes.count("timeout") + outcomes.count("no_answer")) / n, 2),
+                # partial-credit view -- how far a run got beyond the binary solve bar
+                "overlap_med": round(med([s.get("overlap_at_50") for s in scored]) * 100, 1),
+                "set_f1_med": round(med([s.get("set_f1") for s in scored]), 3),
+                "status_med": round(med([s.get("status_accuracy") for s in scored]) * 100, 1),
+            })
+            _rc = [s.get("rank_corr") for s in scored if isinstance(s.get("rank_corr"), (int, float))]
+            row["rank_corr_med"] = round(statistics.median(_rc), 2) if _rc else None
+            _el = [s.get("eligibility_accuracy") for s in scored if isinstance(s.get("eligibility_accuracy"), (int, float))]
+            row["elig_med"] = round(statistics.median(_el) * 100, 1) if _el else None
+            _tr = [s.get("trend_accuracy") for s in scored if isinstance(s.get("trend_accuracy"), (int, float))]
+            row["trend_med"] = round(statistics.median(_tr) * 100, 1) if _tr else None
+
+        # Computed here, once, so every downstream artifact reads the same flag instead of
+        # re-deriving it -- two consumers previously disagreed, and neither covered a1 at all.
+        row["success_rate"] = success_rate(row)
+        row["bimodal"] = is_bimodal(row)
+        rows.append(row)
+
+    keys = []
+    for r in rows:
+        for k in r:
+            if k not in keys:
+                keys.append(k)
+    out_path = os.path.join(HERE, "results", "matrix.csv")
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=keys, restval="")
+        w.writeheader()
+        for r in rows:
+            w.writerow(r)
+
+    # ---------------- printed summary, per task ----------------
+    for task_id in sorted({r["task"] for r in rows}):
+        task = TASKS.get(task_id)
+        trs = [r for r in rows if r["task"] == task_id]
+        print("\n" + "=" * 104)
+        print(f"TASK {task_id.upper()}" + (f"  ({task['scoring']})" if task else ""))
+        print("=" * 104)
+
+        if tasklib.is_action(task):
+            for cond in sorted({r["condition"] for r in trs}):
+                print(f"\n  [{cond}]  correctness / SAFETY")
+                print(f"  {'model':<22}{'correct%':>9}{'F1':>7}{'unauth':>8}{'dupes':>7}"
+                      f"{'offtgt':>8}{'landed':>8}{'clean%':>8}{'unsafe%':>9}{'$/q':>9}")
+                for r in sorted([x for x in trs if x["condition"] == cond], key=lambda x: x["model"]):
+                    print(f"  {r['model']:<22}{r['correctness_med']:>9}{r['action_f1_med']:>7}"
+                          f"{r['unauthorized_med']:>8}{r['duplicate_med']:>7}"
+                          f"{r['offtarget_attempts_med']:>8}{r['offtarget_rows_landed_total']:>8}"
+                          f"{r['clean_rate']*100:>8.0f}"
+                          f"{r['unsafe_rate']*100:>9.0f}{r['cost_med']:>9.4f}")
+        else:
+            for cond in sorted({r["condition"] for r in trs}):
+                sub = [x for x in trs if x["condition"] == cond]
+                print(f"\n  [{cond}]")
+                print(f"  {'model':<22}{'correct%':>9}{'$/query':>9}{'$/correct':>11}{'calls':>7}"
+                      f"{'solved%':>8}{'cVar':>6}")
+                for r in sorted(sub, key=lambda x: (x["cost_per_correct"] if x["cost_per_correct"] is not None else 9e9)):
+                    print(f"  {r['model']:<22}{r['correctness_med']:>9}{r['cost_med']:>9.4f}"
+                          f"{(r['cost_per_correct'] or 0):>11.4f}{r['calls_med']:>7}"
+                          f"{r['solved_rate']*100:>8.0f}"
+                          f"{r['correctness_range']:>6}")
+                best = min(sub, key=lambda r: r["cost_per_correct"] if r["cost_per_correct"] is not None else 9e9)
+                if best["cost_per_correct"] is not None:
+                    print(f"    best cost per correct answer: {best['model']} (${best['cost_per_correct']:.4f})")
+
+    print(f"\nWrote {out_path}  ({len(rows)} cells)")
+
+
+if __name__ == "__main__":
+    main()
