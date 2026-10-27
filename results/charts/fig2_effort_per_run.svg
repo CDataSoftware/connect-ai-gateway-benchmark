@@ -6,7 +6,7 @@
   <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
    <cc:Work>
     <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
-    <dc:date>2026-10-23T20:57:41.556758</dc:date>
+    <dc:date>2026-10-27T15:55:58.776151</dc:date>
     <dc:format>image/svg+xml</dc:format>
     <dc:creator>
      <cc:Agent>
@@ -60,7 +60,7 @@ L 112.002268 112.610956
 L 112.002268 64.394182 
 L 98.28 64.394182 
 z
-" clip-path="url(#p5de7e7f364)" style="fill: #1f4fa3"/>
+" clip-path="url(#p6a921cb11a)" style="fill: #1f4fa3"/>
    </g>
    <g id="patch_4">
     <path d="M 98.28 200.277818 
@@ -68,7 +68,7 @@ L 242.703529 200.277818
 L 242.703529 152.061044 
 L 98.28 152.061044 
 z
-" clip-path="url(#p5de7e7f364)" style="fill: #d2691e"/>
+" clip-path="url(#p6a921cb11a)" style="fill: #d2691e"/>
    </g>
    <g id="text_3">
     <text style="font-size: 10px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: start; fill: #15151c" x="114.890739" y="91.087725" transform="rotate(-0 114.890739 91.087725)">87K</text>
@@ -107,7 +107,7 @@ L 339.498023 112.610956
 L 339.498023 64.394182 
 L 314.915294 64.394182 
 z
-" clip-path="url(#p64dcaaad57)" style="fill: #1f4fa3"/>
+" clip-path="url(#pb13ce73262)" style="fill: #1f4fa3"/>
    </g>
    <g id="patch_7">
     <path d="M 314.915294 200.277818 
@@ -115,7 +115,7 @@ L 459.338824 200.277818
 L 459.338824 152.061044 
 L 314.915294 152.061044 
 z
-" clip-path="url(#p64dcaaad57)" style="fill: #d2691e"/>
+" clip-path="url(#pb13ce73262)" style="fill: #d2691e"/>
    </g>
    <g id="text_7">
     <text style="font-size: 10px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: start; fill: #15151c" x="342.386493" y="91.087725" transform="rotate(-0 342.386493 91.087725)">8</text>
@@ -154,7 +154,7 @@ L 582.523599 112.610956
 L 582.523599 64.394182 
 L 531.550588 64.394182 
 z
-" clip-path="url(#pffef658986)" style="fill: #1f4fa3"/>
+" clip-path="url(#p7b636d9eb6)" style="fill: #1f4fa3"/>
    </g>
    <g id="patch_10">
     <path d="M 531.550588 200.277818 
@@ -162,7 +162,7 @@ L 675.974118 200.277818
 L 675.974118 152.061044 
 L 531.550588 152.061044 
 z
-" clip-path="url(#pffef658986)" style="fill: #d2691e"/>
+" clip-path="url(#p7b636d9eb6)" style="fill: #d2691e"/>
    </g>
    <g id="text_11">
     <text style="font-size: 10px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: start; fill: #15151c" x="585.412069" y="91.087725" transform="rotate(-0 585.412069 91.087725)">6</text>
@@ -178,20 +178,20 @@ z
    </g>
   </g>
   <g id="text_15">
-   <text style="font-weight: 700; font-size: 14px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: start; fill: #15151c" x="7.2" y="17.220938" transform="rotate(-0 7.2 17.220938)">Where the cost goes</text>
+   <text style="font-weight: 700; font-size: 14px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: start; fill: #15151c" x="7.2" y="17.220938" transform="rotate(-0 7.2 17.220938)">Where the cost goes, across all runs</text>
   </g>
   <g id="text_16">
-   <text style="font-size: 10px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: start; fill: #52514e" x="7.2" y="36.079688" transform="rotate(-0 7.2 36.079688)">Through the open-source gateway, the model fetches each system separately and does the math itself.</text>
+   <text style="font-size: 10px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: start; fill: #52514e" x="7.2" y="36.079688" transform="rotate(-0 7.2 36.079688)">Medians of all 405 runs per gateway. Through the open-source gateway, the model fetches each system separately and does the math itself.</text>
   </g>
  </g>
  <defs>
-  <clipPath id="p5de7e7f364">
+  <clipPath id="p6a921cb11a">
    <rect x="98.28" y="57.6" width="180.529412" height="149.472"/>
   </clipPath>
-  <clipPath id="p64dcaaad57">
+  <clipPath id="pb13ce73262">
    <rect x="314.915294" y="57.6" width="180.529412" height="149.472"/>
   </clipPath>
-  <clipPath id="pffef658986">
+  <clipPath id="p7b636d9eb6">
    <rect x="531.550588" y="57.6" width="180.529412" height="149.472"/>
   </clipPath>
  </defs>

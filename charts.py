@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Render the whitepaper's four figures from results/runs_raw.csv into results/charts/.
+"""Render the whitepaper's five figures from results/runs_raw.csv into results/charts/.
 
-  fig1_cost_vs_success   cost per correct, governed task vs. success rate, every model on both gateways
-  fig2_success_by_model  success rate by model on both gateways, grouped by tier
-  fig3_effort_per_run    median tokens, tool calls and turns per run
-  fig4_read_outcomes     read-task outcomes (R1 + R2): solved, ran out of turns, no answer, confidently wrong
+  fig1_tokens_to_correct_answer  tokens to reach a correct answer, each model-and-task pair both gateways got right
+  fig2_effort_per_run            median tokens, tool calls and turns per run, across all runs
+  fig3_cost_vs_success           cost per correct, governed task vs. success rate, every model on both gateways
+  fig4_success_by_model          success rate by model on both gateways, grouped by tier
+  fig5_read_outcomes             read-task outcomes (R1 + R2): solved, ran out of turns, no answer, confidently wrong
 
 Each figure is written as PNG (for review) and SVG (for layout). A task counts as correct and
 governed when its outcome is `solved` (R1, R2) or `clean` (A1); cost per correct task is total
@@ -67,7 +68,7 @@ def money(v):
 
 def finish(fig, ax_or_axes, title, subtitle, name):
     h = fig.get_figheight()
-    fig.subplots_adjust(top=1 - 0.95 / h)
+    fig.subplots_adjust(top=1 - (0.95 + 0.18 * subtitle.count("\n")) / h)
     fig.text(0.01, 1 - 0.25 / h, title, ha="left", va="top", fontsize=14, fontweight="bold")
     fig.text(0.01, 1 - 0.55 / h, subtitle, ha="left", va="top", fontsize=10, color=INK2)
     for ax in (ax_or_axes if isinstance(ax_or_axes, (list, tuple)) else [ax_or_axes]):
@@ -87,7 +88,55 @@ def legend(ax, loc="lower right", **kw):
     ax.legend(handles=handles, loc=loc, frameon=False, fontsize=9.5, **kw)
 
 
-def fig1(rows, S):
+def fig_tokens(rows):
+    """Tokens to reach a correct answer: for each model-and-task pair with correct runs on both gateways,
+    the median tokens of its correct runs on each gateway (log-log), against the line of equal tokens."""
+    by = {}
+    for r in rows:
+        if r["ok"]:
+            by.setdefault((r["label"], r["task"], r["condition"]), []).append(float(r["total_tokens"] or 0))
+    pairs = []
+    for (m, t, c), v in by.items():
+        if c == CAI and (m, t, OSG) in by:
+            pairs.append((m, t, st.median(v), st.median(by[(m, t, OSG)])))
+    ratios = sorted(o / a for _, _, a, o in pairs)
+    med = st.median(ratios)
+    fig, ax = plt.subplots(figsize=(8.5, 7.4))
+    (x0, x1), (y0, y1) = (2e4, 2e6), (6e4, 6e6)  # two decades on each axis, so the diagonal is at 45 degrees
+    ax.plot([y0, x1], [y0, x1], color=MUTED, linewidth=1.2, zorder=1)
+    ax.plot([x0, y1 / 10], [x0 * 10, y1], color=GRID, linewidth=1.4, zorder=1)
+    ax.text(x1 / 1.08, x1 / 1.25, "same tokens\non both gateways", fontsize=9, color=INK2, ha="right", va="top")
+    ax.text(y1 / 10 * 1.12, y1 / 1.06, "ten times the tokens", fontsize=9, color=INK2, ha="left", va="top")
+    ax.scatter([a for *_, a, _ in pairs], [o for *_, o in pairs], s=54, color=COLOR[OSG],
+               edgecolor=SURFACE, linewidth=1.5, zorder=3)
+    task = {"r1": "R1", "r2": "R2", "a1": "A1"}
+    place = {("Qwen 3.8 Flash", "r1"): (10, 0, "left")}  # the widest pair; other labels would cover dots
+    for m, t, a, o in pairs:
+        if (m, t) in place:
+            dx, dy, ha = place[(m, t)]
+            ax.annotate(f"{m}, {task[t]}: {a / 1000:,.0f}K vs. {o / 1e6:.2f}M tokens", (a, o), xytext=(dx, dy),
+                        textcoords="offset points", fontsize=9, color=INK, va="center", ha=ha,
+                        bbox=dict(boxstyle="round,pad=0.15", fc=SURFACE, ec="none", alpha=0.85), zorder=4)
+    ax.set_xscale("log"); ax.set_yscale("log")
+    ax.set_xlim(x0, x1); ax.set_ylim(y0, y1)
+    lab = lambda v: f"{v / 1e6:g}M" if v >= 1e6 else f"{v / 1e3:g}K"
+    xt, yt = [3e4, 1e5, 3e5, 1e6], [1e5, 3e5, 1e6, 3e6]
+    ax.set_xticks(xt); ax.set_xticklabels([lab(v) for v in xt])
+    ax.set_yticks(yt); ax.set_yticklabels([lab(v) for v in yt])
+    ax.minorticks_off()
+    ax.set_aspect("equal")
+    ax.set_xlabel("Tokens through Connect AI Gateway (median of the pair's correct runs, log scale)")
+    ax.set_ylabel("Tokens through the open-source MCP gateway (log scale)")
+    ax.grid(axis="y", color=GRID, linewidth=0.8)
+    above = sum(1 for _, _, a, o in pairs if o > a)
+    finish(fig, ax, "Tokens to reach the same correct answer",
+           f"Each dot is one model on one task that both gateways got right ({len(pairs)} pairs). "
+           f"{'All' if above == len(pairs) else above} {len(pairs)} sit above the line of equal tokens;\n"
+           f"the median pair used {100 * (1 - 1 / med):.0f}% fewer tokens through Connect AI Gateway.",
+           "fig1_tokens_to_correct_answer")
+
+
+def fig_cost(rows, S):
     """Cost per correct task (log x) vs. success rate, one point per model per gateway, paired by a line."""
     models = sorted({k[0] for k in S})
     none_x = 60.0  # strip for models with no correct task on that gateway
@@ -136,13 +185,13 @@ def fig1(rows, S):
     ax.set_ylabel("Tasks correct (of 15 per model)")
     ax.grid(axis="y", color=GRID, linewidth=0.8)
     legend(ax, loc="lower left")
-    ratio = tot[OSG][0] / tot[CAI][0]
-    finish(fig, ax, f"{ratio:.0f}x lower cost per correct task through Connect AI Gateway",
-           "One dot per model per gateway; large dots are all 27 models together. Same models, same context.",
-           "fig1_cost_vs_success")
+    finish(fig, ax, "Cost per correct task and success rate, every model on both gateways",
+           f"One dot per model per gateway; large dots are all 27 models together: {money(tot[CAI][0])} vs. "
+           f"{money(tot[OSG][0])} per correct task, failed runs priced in.".replace("$", r"\$"),  # no mathtext
+           "fig3_cost_vs_success")
 
 
-def fig2(S):
+def fig_success(S):
     """Success rate by model, both gateways, grouped by tier (dumbbell)."""
     order, labels, ys, y = [], [], [], 0
     tier_rows = []
@@ -175,11 +224,11 @@ def fig2(S):
     finish(fig, ax, "Who stays reliable",
            f"{full[CAI]} models got every task right through Connect AI Gateway; "
            f"{full[OSG]} did through the open-source gateway.",
-           "fig2_success_by_model")
+           "fig4_success_by_model")
 
 
-def fig3(rows):
-    """Median effort per run: tokens, tool calls, turns. Different scales, so one panel each."""
+def fig_effort(rows):
+    """Median effort per run, across all runs: tokens, tool calls, turns. Different scales, so one panel each."""
     measures = [("total_tokens", "Tokens per run", lambda v: f"{v / 1000:,.0f}K"),
                 ("tool_calls", "Tool calls per run", lambda v: f"{v:g}"),
                 ("turns", "Turns per run", lambda v: f"{v:g}")]
@@ -198,12 +247,12 @@ def fig3(rows):
         ax.spines["bottom"].set_visible(False); ax.spines["left"].set_visible(False)
         ax.text(0, -0.62, f"{vals[1] / vals[0]:.1f}x more through the open-source gateway", fontsize=9.5,
                 color=INK2, transform=ax.get_yaxis_transform())
-    finish(fig, list(axes), "Where the cost goes",
-           "Through the open-source gateway, the model fetches each system separately and does the math itself.",
-           "fig3_effort_per_run")
+    finish(fig, list(axes), "Where the cost goes, across all runs",
+           "Medians of all 405 runs per gateway. Through the open-source gateway, the model fetches each system separately and does the math itself.",
+           "fig2_effort_per_run")
 
 
-def fig4(rows):
+def fig_outcomes(rows):
     """Read-task outcomes (R1 + R2) as 100% stacked bars, one per gateway."""
     fig, ax = plt.subplots(figsize=(10, 2.9))
     for yy, c in ((1, CAI), (0, OSG)):
@@ -227,14 +276,18 @@ def fig4(rows):
     ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.38), ncol=4, frameon=False, fontsize=9.5)
     finish(fig, ax, "Trustworthy answers",
            "A confidently wrong answer looks like a right one. Segments under 6% are unlabeled; see the table in the paper.",
-           "fig4_read_outcomes")
+           "fig5_read_outcomes")
 
 
 if __name__ == "__main__":
     ROWS = load()
     TIER = {r["label"]: r["tier"] for r in ROWS}
     SUMMARY = summarize(ROWS)
-    fig1(ROWS, SUMMARY)
-    fig2(SUMMARY)
-    fig3(ROWS)
-    fig4(ROWS)
+    for old in os.listdir(OUT) if os.path.isdir(OUT) else []:
+        if old.startswith("fig") and old.endswith((".png", ".svg")):
+            os.remove(os.path.join(OUT, old))  # figure numbers follow the whitepaper; drop stale names
+    fig_tokens(ROWS)
+    fig_effort(ROWS)
+    fig_cost(ROWS, SUMMARY)
+    fig_success(SUMMARY)
+    fig_outcomes(ROWS)
