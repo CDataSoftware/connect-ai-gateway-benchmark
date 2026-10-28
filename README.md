@@ -145,7 +145,7 @@ When the run completes, `results/matrix.csv` will hold per-model results and `re
 6. `python3 run_matrix.py --dry-run` confirms the plan before you spend anything. It connects to every MCP endpoint in the plan and prints each one's tool count and instruction length.
 7. `python3 run_matrix.py` runs the full matrix. It is resumable and skips completed runs. Scope it with `--task r2` or `--model gpt-6-sol`, or smoke-test cheaply with `--runs 1 --out-dir results/smoke`. `--effort X` runs every selected model at one reasoning level instead of its configured level.
 8. `python3 aggregate.py --effort configured`, then `python3 export_raw.py`.
-9. `python3 charts.py` renders the five figures used in the whitepaper (tokens to reach the same correct answer, for each model-and-task pair both gateways got right; effort per run across all runs; cost per correct task vs. success rate; success rate by model; read-task outcomes) from `results/runs_raw.csv` into `results/charts/`.
+9. `python3 charts.py` renders the five figures used in the whitepaper (tokens to reach the same correct answer, for each model-and-task pair both gateways got right; effort per run across all runs; cost per correct task vs. success rate; success rate by model; read-task outcomes), plus the executive summary's Figure 1 (tokens for the typical correct answer), from `results/runs_raw.csv` into `results/charts/`.
 
 Write-task runs reset `REVIEW_QUEUE` before each run. The harness verifies read and reset access before the matrix starts, so a permissions problem surfaces immediately rather than dozens of ungradable runs later.
 

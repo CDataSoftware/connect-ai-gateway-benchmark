@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="724.043125pt" height="169.416pt" viewBox="0 0 724.043125 169.416" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-10-28T07:44:02.039333</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.8, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 169.416 
+L 724.043125 169.416 
+L 724.043125 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 145.615 162.216 
+L 703.615 162.216 
+L 703.615 57.6 
+L 145.615 57.6 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="matplotlib.axis_1"/>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_1"/>
+     <g id="text_1">
+      <text style="font-size: 11px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: end; fill: #15151c" x="142.115" y="83.429311" transform="rotate(-0 142.115 83.429311)">Connect AI Gateway</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_2"/>
+     <g id="text_2">
+      <text style="font-size: 11px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: end; fill: #15151c" x="142.115" y="144.397783" transform="rotate(-0 142.115 144.397783)">Open-source MCP gateway</text>
+     </g>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 145.615 96.495692 
+L 174.679311 96.495692 
+L 174.679311 62.355273 
+L 145.615 62.355273 
+z
+" clip-path="url(#p9a385804d7)" style="fill: #1f4fa3"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 145.615 157.460727 
+L 574.845769 157.460727 
+L 574.845769 123.320308 
+L 145.615 123.320308 
+z
+" clip-path="url(#p9a385804d7)" style="fill: #d2691e"/>
+   </g>
+   <g id="text_3">
+    <text style="font-weight: 700; font-size: 11px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: start; fill: #15151c" x="181.117773" y="82.276889" transform="rotate(-0 181.117773 82.276889)">83K tokens</text>
+   </g>
+   <g id="text_4">
+    <text style="font-weight: 700; font-size: 11px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: start; fill: #15151c" x="581.284231" y="143.241924" transform="rotate(-0 581.284231 143.241924)">1.2 million tokens</text>
+   </g>
+  </g>
+  <g id="text_5">
+   <text style="font-weight: 700; font-size: 14px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: start; fill: #15151c" x="62.815" y="17.391562" transform="rotate(-0 62.815 17.391562)">Tokens for the typical correct answer</text>
+  </g>
+  <g id="text_6">
+   <text style="font-size: 10px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans'; text-anchor: start; fill: #52514e" x="62.815" y="36.079687" transform="rotate(-0 62.815 36.079687)">Median across the 44 cases where the same model got the same task right through both gateways: 93% fewer tokens through Connect AI Gateway.</text>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p9a385804d7">
+   <rect x="145.615" y="57.6" width="558" height="104.616"/>
+  </clipPath>
+ </defs>
+</svg>
